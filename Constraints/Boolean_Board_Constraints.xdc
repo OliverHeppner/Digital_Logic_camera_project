@@ -115,3 +115,15 @@ set_property -dict {PACKAGE_PIN M14 IOSTANDARD LVCMOS33} [get_ports {servo0}]
 set_property -dict {PACKAGE_PIN M16 IOSTANDARD LVCMOS33} [get_ports {servo1}]
 set_property -dict {PACKAGE_PIN L15 IOSTANDARD LVCMOS33} [get_ports {servo2}]
 set_property -dict {PACKAGE_PIN L16 IOSTANDARD LVCMOS33} [get_ports {servo3}]
+
+#project specific definitions:
+#camera:
+#PIN HAS NOT BEEN SET!!!!!!! CHOOSE A PIN TO USE SOON!!!!
+set_property -dict {PACKAGE_PIN D5 IOSTANDARD LVCMOS33} [get_ports {camera}] 
+
+#reset
+set_property -dict {PACKAGE_PIN J2 IOSTANDARD LVCMOS33} [get_ports {rst}]
+
+#Power out (needs to be figured out)
+#PIN HAS NOT BEEN SET!!!!!!! CHOOSE A PIN TO USE SOON!!!!
+set_property -dict {PACKAGE_PIN __ IOSTANDARD LVCMOS33} [get_ports {rst}]
