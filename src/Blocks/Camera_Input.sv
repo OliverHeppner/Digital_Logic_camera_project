@@ -8,7 +8,7 @@
 module Camera_Input(
     input logic vSync,
     input logic compSync, //contains hSync
-    input logic isEven,
+    input logic isOdd, //from LM1881 datasheet --> 0 is even, 1 is odd
     input logic CLK, //internal boolean board 100 MHz clock
     input logic [11:0] data, // the output of the ADC is 12 bits
     output logic [11:0] writtenData,
@@ -29,16 +29,40 @@ logic [10:0] counter = 0;
 logic [5:0] pixelCounter = 0;
 
 // need to detect the instant hSync goes low, so we make variables to track its current and previous states
-logic hsync1;
-logic hsync2;
-logic hsync3;
-logic hsync4;
+logic hsync1 = 1;
+logic hsync2 = 1;
+logic hsync3 = 1;
+logic hsync4 = 1;
 
-always_ff @ (posedge CLK) begin //we shuffle the value of hsync through 4 variables - a falling edge occurs where hsync4 is low and hsync3 is high
+always_ff @ (posedge CLK) begin //we shuffle the value of hsync through 4 variables - a falling edge occurs where hsync4 is high and hsync3 is low
     hsync1 <= compSync;
     hsync2 <= hsync1;
     hsync3 <= hsync2;
     hsync4 <= hsync3;
+end
+
+//we'll do the same with vSync too
+logic vsync1 = 1;
+logic vsync2 = 1;
+logic vsync3 = 1;
+logic vsync4 = 1;
+
+always_ff @ (posedge CLK) begin
+    vsync1 <= vSync;
+    vsync2 <= vsync1;
+    vsync3 <= vsync2;
+    vsync4 <= vsync3;
+end
+
+// and the same as well for isOdd
+logic odd1;
+logic odd2;
+logic odd3;
+
+always_ff @ (posedge CLK) begin
+    odd1 <= isOdd;
+    odd2 <= odd1;
+    odd3 <= odd2;
 end
 
 logic synced = 0;
@@ -47,7 +71,7 @@ always_ff @ (posedge CLK) begin
 
     valid <= 0;
     
-    if (!vSync) begin
+    if (vsync4 && !vsync3) begin
         synced <= 1;
         state <= 2'b00;
         counter <= 0;
@@ -63,7 +87,7 @@ always_ff @ (posedge CLK) begin
         default: state <= 2'b00;
     
         2'b00: begin //wait for hSync state
-            if (vSync && hsync4 && !hsync3 == 1) begin
+            if (vsync3 && hsync4 && !hsync3) begin
                 state <= state + 1;
             end
         end
@@ -78,7 +102,6 @@ always_ff @ (posedge CLK) begin
     
         2'b10: begin //sample pixels
             counter <= counter + 1;
-            valid <= 0;
         
             if (counter == 0) begin
                 writtenData <= data;
@@ -103,9 +126,6 @@ always_ff @ (posedge CLK) begin
             
             if (dataRow < 47) begin
                 dataRow <= dataRow + 1;
-                state <= 2'b00;
-            end else if (!vSync) begin
-                dataRow <= 0;
                 state <= 2'b00;
             end
         end
