@@ -1,7 +1,7 @@
 `timescale 1ns / 1ps
 
 // The purpose of this module is to keep track of what position the "CRT cursor" is at, and then send that data
-// along with the output of the ADC, to the memory block to be stored in the relevant location
+// along with the output of the ADC to the memory block to be stored in the relevant location
 // i.e. takes in LM1881 stuff and ADC data, outputs ADC data along with the grid coordinate 
 // that the data corresponds to
 
@@ -12,8 +12,8 @@ module Camera_Input(
     input logic CLK, //internal boolean board 100 MHz clock
     input logic [11:0] data, // the output of the ADC is 12 bits
     output logic [11:0] writtenData,
-    output logic [6:0] dataRow,
-    output logic [6:0] dataCol,
+    output logic [5:0] dataRow,
+    output logic [5:0] dataCol,
     output logic valid
     );
 
@@ -55,9 +55,9 @@ always_ff @ (posedge CLK) begin
 end
 
 // and the same as well for isOdd
-logic odd1;
-logic odd2;
-logic odd3;
+logic odd1 = 0;
+logic odd2 = 0;
+logic odd3 = 0;
 
 always_ff @ (posedge CLK) begin
     odd1 <= isOdd;
@@ -65,6 +65,8 @@ always_ff @ (posedge CLK) begin
     odd3 <= odd2;
 end
 
+logic [4:0] rowCounter = 0;
+logic parity = 0;
 logic synced = 0;
 
 always_ff @ (posedge CLK) begin
@@ -78,6 +80,7 @@ always_ff @ (posedge CLK) begin
         pixelCounter <= 0;
         dataRow <= 0;
         dataCol <= 0;
+        rowCounter <= 0;
     end
     
     else if (synced) begin
@@ -88,6 +91,10 @@ always_ff @ (posedge CLK) begin
     
         2'b00: begin //wait for hSync state
             if (vsync3 && hsync4 && !hsync3) begin
+                if (rowCounter == 0) begin
+                    parity <= !odd3;
+                end
+                
                 state <= state + 1;
             end
         end
@@ -106,6 +113,7 @@ always_ff @ (posedge CLK) begin
             if (counter == 0) begin
                 writtenData <= data;
                 dataCol <= pixelCounter;
+                dataRow <= (2 * rowCounter) + parity;
                 valid <= 1;
             end
         
@@ -124,8 +132,8 @@ always_ff @ (posedge CLK) begin
         2'b11: begin // row complete
             counter <= 0;
             
-            if (dataRow < 47) begin
-                dataRow <= dataRow + 1;
+            if (rowCounter < 23) begin
+                rowCounter <= rowCounter + 1;
                 state <= 2'b00;
             end
         end
