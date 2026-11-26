@@ -1,6 +1,4 @@
-`timescale 1us / 1ns
-
-// TO DO: count 9.4 microseconds from the falling edge of hsync (it's active low)
+`timescale 1ns / 1ps
 
 /* 
 Process (so I don't lose my mind):
@@ -38,8 +36,9 @@ end
 
 logic [5:0] row_counter = 0; // what row are we on? (vertical position, indexed from 0 at the top)
 logic [5:0] column_counter = 0; // what column are we on? (horizontal position, indexed from 0 at the left)
-logic [5:0] state = 0;
+logic [1:0] state = 0;
 logic [10:0] counter = 0;
+logic [5:0] pixelCounter = 0;
 
 // need to detect the instant hSync goes low, so we make variables to track its current and previous states
 logic hsync1;
@@ -57,34 +56,46 @@ end
 always_ff @ (posedge CLK) begin
     case (state)
     
-    6'b000000: begin //wait for hSync state
+    default: state <= 0;
+    
+    2'b00: begin //wait for hSync state
         if (!vSync && !hsync4 && hsync3 == 1) begin
             state <= state + 1;
         end
     end
     
-    6'b000001: begin // wait 11.7 us
+    2'b01: begin // wait 11.7 us
         counter <= counter + 1;
-        if (counter >= 1169) begin
+        if (counter >= 11'd1169) begin
             state <= state + 1;
             counter <= 0;
         end
     end
     
-    6'b000010: begin //sample pixel 1
+    2'b10: begin //sample pixels
         counter <= counter + 1;
         valid <= 0;
         
-        if (counter == 0) begin
+        if (counter == 11'd0) begin
             writtenData <= data;
-            dataCol <= 0;
+            dataCol <= pixelCounter;
             valid <= 1;
         end
         
-        if (counter >= 99) begin
-            state <= state + 1;
-            counter <= 0;
+        if (counter >= 11'd99) begin
+            counter <= 11'd0;
+            
+            if (pixelCounter >= 47) begin
+                pixelCounter <= 0;
+                state <= state + 1;
+            end else begin
+                pixelCounter <= pixelCounter + 1;
+            end
         end
+    end
+    
+    2'b11: begin // row complete
+        ;
     end
     
     endcase
