@@ -25,8 +25,16 @@ module Camera_Input(
     input logic [11:0] data, // the output of the ADC is 12 bits
     output logic [11:0] writtenData,
     output logic [6:0] dataRow,
-    output logic [6:0] dataCol
+    output logic [6:0] dataCol,
+    output logic valid
     );
+
+initial begin
+    dataCol = 0;
+    writtenData = 0;
+    dataRow = 0;
+    valid = 0;
+end
 
 logic [5:0] row_counter = 0; // what row are we on? (vertical position, indexed from 0 at the top)
 logic [5:0] column_counter = 0; // what column are we on? (horizontal position, indexed from 0 at the left)
@@ -50,17 +58,34 @@ always_ff @ (posedge CLK) begin
     case (state)
     
     6'b000000: begin //wait for hSync state
-        ;
-    end
-    
-    6'b000001: begin // wait 11.7 us
-        counter <= counter + 1;
-        if (counter >= 1170) begin
+        if (!vSync && !hsync4 && hsync3 == 1) begin
             state <= state + 1;
         end
     end
     
+    6'b000001: begin // wait 11.7 us
+        counter <= counter + 1;
+        if (counter >= 1169) begin
+            state <= state + 1;
+            counter <= 0;
+        end
+    end
     
+    6'b000010: begin //sample pixel 1
+        counter <= counter + 1;
+        valid <= 0;
+        
+        if (counter == 0) begin
+            writtenData <= data;
+            dataCol <= 0;
+            valid <= 1;
+        end
+        
+        if (counter >= 99) begin
+            state <= state + 1;
+            counter <= 0;
+        end
+    end
     
     endcase
 end
