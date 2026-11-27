@@ -2,6 +2,7 @@ set repo_root [file normalize [file join [file dirname [info script]] ..]]
 set proj_name "my_project"
 set part      "XC7S50-CSGA324-1";# change to your FPGA part
 
+catch {close_project}
 create_project $proj_name $repo_root/build -part $part -force
 
 # Design sources (add_files accepts directories)
