@@ -1,0 +1,111 @@
+module HDMout
+    import HDMI_info::*;              // Header include
+(
+    input  logic pixel_clk,           // CHANGED: now an input (25 MHz from the Clocking Wizard). The clk port is gone.
+    output logic [ADDR_BITS-1:0] read_addr,       // Sized for memory
+    input  logic [PIXEL_BITS-1:0] read_data,     // Sized for memory
+    output logic [7:0] red,           // red pixel information
+    output logic [7:0] green,         // green pixel information
+    output logic [7:0] blue,          // blue pixel information
+    output logic hsync,               // HSYNC to HDMI
+    output logic vsync,               // VSYNC for HDMI
+    output logic de                   // Data enable – During VSYNC
+);
+
+    // 640 x 480 @ 60 Hz VGA timing
+    localparam int SCREEN_W = 640;
+    localparam int SCREEN_H = 480;
+    localparam int H_TOTAL = 800;
+    localparam int V_TOTAL = 525;
+
+    // CHANGED: the clk_div divider is gone (pixel_clk comes in from outside).
+
+    // Where you are in the HDMI display area
+    logic [9:0] x = 0;
+    logic [9:0] y = 0;
+
+    // Memory address for the next pixel to display.
+    logic [9:0] next_x;
+    logic [9:0] next_y;
+    logic image_on;
+
+    // Delay image enable to match synchronous BRAM output.
+    logic image_valid = 0;
+
+    // CHANGED: new. A 24-bit pixel built from read_data (gray: same byte on all three colors).
+    logic [23:0] pix;
+
+    // Keeping track of whether you are in boundary of the HDMI display.
+    // 640x800.
+    always_ff @(posedge pixel_clk) begin
+        if (x == H_TOTAL-1) begin
+            x <= 0;
+
+            if (y == V_TOTAL-1)
+                y <= 0;
+            else
+                y <= y + 1'b1;
+        end
+        else
+            x <= x + 1'b1;
+    end
+
+    // Main display stuff.
+    always_comb begin
+        next_x = x + 1'b1;
+        next_y = y;
+
+        if (x == H_TOTAL-1) begin
+            next_x = 0;
+            if (y == V_TOTAL-1)
+                next_y = 0;
+            else
+                next_y = y + 1'b1;
+        end
+
+        read_addr = '0;
+        image_on = 1'b0;
+
+         // Should the image be magnified to full display?
+        if (next_x < SCREEN_W && next_y < SCREEN_H) begin
+            if (EXPAND) begin
+                read_addr =
+                    (next_y * ROWS / SCREEN_H) * COLS
+                    + (next_x * COLS / SCREEN_W);
+                image_on = 1'b1;
+            end
+            else if (next_x < COLS && next_y < ROWS) begin
+                read_addr = next_y * COLS + next_x;
+                image_on = 1'b1;
+            end
+        end
+    end
+
+    always_ff @(posedge pixel_clk)
+        image_valid <= image_on;
+
+    // CHANGED: new. Never indexes past the end of an 8-bit read_data.
+    assign pix = COLOR ? 24'(read_data) : {3{8'(read_data)}};
+
+    // RGB output
+    always_comb begin
+        red   = 0;
+        green = 0;
+        blue  = 0;
+
+        if (de && image_valid) begin
+            red   = pix[23:16];       // CHANGED: was an if (COLOR) / else on read_data
+            green = pix[15:8];
+            blue  = pix[7:0];
+        end
+    end
+
+    // CHANGED: "assign pixel_clk = clk_div[1]" is gone.
+
+    // VGA synchronization
+    assign de = (x < SCREEN_W && y < SCREEN_H);
+
+    assign hsync = ~((x >= 656) && (x < 752));
+    assign vsync = ~((y >= 490) && (y < 492));
+
+endmodule

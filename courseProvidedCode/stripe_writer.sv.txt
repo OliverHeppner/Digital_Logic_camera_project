@@ -1,0 +1,22 @@
+// Fills the frame buffer with vertical stripes (4 pixels wide, black and white), over and over.
+// Connect to the BRAM's port A:  .wea(write_enable)  .addra(write_addr)  .dina(write_data)  .clka(clk)
+module stripe_writer
+    import HDMI_info::*;
+(
+    input  logic                  clk,
+    output logic                  write_enable,
+    output logic [ADDR_BITS-1:0]  write_addr = '0,
+    output logic [PIXEL_BITS-1:0] write_data
+);
+    logic [$clog2(COLS)-1:0] col = '0;      // which column the current address is in
+
+    assign write_enable = 1'b1;
+
+    always_ff @(posedge clk) begin
+        write_addr <= (write_addr == DEPTH-1) ? '0 : write_addr + 1'b1;
+        col        <= (col == COLS-1)         ? '0 : col + 1'b1;
+    end
+
+    // col[2] flips every 4 columns. The replication makes this work for gray (8 bits) or color (24 bits).
+    assign write_data = {(PIXEL_BITS/8){col[2] ? 8'hFF : 8'h00}};
+endmodule
