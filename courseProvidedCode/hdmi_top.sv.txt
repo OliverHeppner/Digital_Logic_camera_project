@@ -1,0 +1,43 @@
+module hdmi_top
+    import HDMI_info::*;
+(
+    input  logic       clk,            // 100 MHz board clock (F14)
+    output logic       hdmi_clk_p, hdmi_clk_n,
+    output logic [2:0] hdmi_tx_p,  hdmi_tx_n
+);
+    // 25 MHz pixel clock from the Clocking Wizard
+    logic pixel_clk, pix_locked;
+    clk_wiz_0 pix_pll (.clk_in1(clk), .clk_out1(pixel_clk), .locked(pix_locked));
+
+    // Frame buffer, written by the stripes, read by the display
+    logic                  write_enable;
+    logic [ADDR_BITS-1:0]  write_addr, read_addr;
+    logic [PIXEL_BITS-1:0] write_data, read_data;
+
+    stripe_writer stripes (.clk, .write_enable, .write_addr, .write_data);
+
+    HDMI_data frame_buffer (
+        .clka  (clk),  .ena (1'b1), .wea (write_enable),
+        .addra (write_addr), .dina (write_data),
+        .clkb  (pixel_clk), .addrb (read_addr), .doutb (read_data)
+    );
+
+    // Video timing and pixel readout
+    logic [7:0] red, green, blue;
+    logic       hsync, vsync, de;
+
+    HDMout to_display (
+        .pixel_clk, .read_addr, .read_data,
+        .red, .green, .blue, .hsync, .vsync, .de
+    );
+
+    // Parallel video to HDMI
+    rgb2dvi #(.kClkPrimitive("MMCM"), .kClkRange(5)) hdmi_tx (
+        .TMDS_Clk_p (hdmi_clk_p),  .TMDS_Clk_n (hdmi_clk_n),
+        .TMDS_Data_p(hdmi_tx_p),   .TMDS_Data_n(hdmi_tx_n),
+        .aRst       (~pix_locked), .aRst_n (1'b1),
+        .vid_pData  ({red, green, blue}),
+        .vid_pVDE   (de), .vid_pHSync (hsync), .vid_pVSync (vsync),
+        .PixelClk   (pixel_clk),   .SerialClk (1'b0)
+    );
+endmodule

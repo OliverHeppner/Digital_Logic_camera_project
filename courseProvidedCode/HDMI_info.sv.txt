@@ -1,0 +1,11 @@
+// HDMI_info.sv  --  shared settings for the frame buffer and the display.
+// Add this file FIRST (it must compile before the modules that import it).
+package HDMI_info;
+    parameter int COLS   = 48;    // Set your # of samples/row
+    parameter int ROWS   = 48;    // Set your # of rows
+    parameter bit COLOR  = 0;     // 0 = grayscale, 1 = RGB
+    parameter bit EXPAND = 1;     // 0 = upper_left, 1 = Full screen
+    localparam int DEPTH      = ROWS * COLS;          // pixels in the frame buffer
+    localparam int PIXEL_BITS = COLOR ? 24 : 8;       // bits per pixel
+    localparam int ADDR_BITS  = $clog2(DEPTH);        // frame buffer address width
+endpackage
